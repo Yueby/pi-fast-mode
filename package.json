@@ -1,9 +1,17 @@
 {
   "name": "@yueby/pi-fast-mode",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Toggle priority service tier for Pi models with /fast and persistent provider model scopes.",
   "license": "MIT",
   "author": "yueby",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Yueby/pi-fast-mode.git"
+  },
+  "homepage": "https://github.com/Yueby/pi-fast-mode#readme",
+  "bugs": {
+    "url": "https://github.com/Yueby/pi-fast-mode/issues"
+  },
   "type": "module",
   "keywords": ["pi-package", "pi-extension", "openai", "service-tier"],
   "files": ["src", "README.md", "LICENSE"],
