@@ -1,0 +1,27 @@
+{
+  "name": "@yueby/pi-fast-mode",
+  "version": "0.1.0",
+  "description": "Toggle priority service tier for Pi models with /fast and persistent provider model scopes.",
+  "license": "MIT",
+  "author": "yueby",
+  "type": "module",
+  "keywords": ["pi-package", "pi-extension", "openai", "service-tier"],
+  "files": ["src", "README.md", "LICENSE"],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "pi": {
+    "extensions": ["./src/index.ts"]
+  }
+}
