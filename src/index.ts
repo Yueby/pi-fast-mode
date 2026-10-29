@@ -2,6 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { openModelScopeDialog } from "./model-scope-dialog.ts";
+import { applyTierPolicy, usesExplicitDefault } from "./request-policy.ts";
 import { createScopeStore, type ProviderScopes, type ScopeStore } from "./scope-store.ts";
 
 const STATUS_KEY = "pi-fast-mode";
@@ -29,6 +30,11 @@ export function registerFastMode(pi: ExtensionAPI, store: ScopeStore): void {
   const enabledModels = new Set<string>();
   let providerScopes: ProviderScopes = new Map();
   let scopesReady = false;
+  function inactivePolicy(ctx: ExtensionContext): string {
+    return usesExplicitDefault(ctx.model?.api)
+      ? "Requests explicitly ask for service_tier=default."
+      : "Existing fast-tier fields are removed; backend defaults may still apply.";
+  }
 
   function loadScopes(ctx: ExtensionContext): boolean {
     try {
@@ -83,10 +89,10 @@ export function registerFastMode(pi: ExtensionAPI, store: ScopeStore): void {
   });
 
   pi.registerCommand("fast", {
-    description: "Toggle priority for the current provider/model or configure scope: /fast [on|off|status|models]",
+    description: "Control priority and model scopes: /fast [on|off|status|models]",
     getArgumentCompletions: (prefix) => {
-      const options = ["on", "off", "status", "models"];
       const p = prefix.trim().toLowerCase();
+      const options = ["on", "off", "status", "models"];
       const matched = options.filter((opt) => opt.startsWith(p));
       return matched.length ? matched.map((v) => ({ value: v, label: v })) : null;
     },
@@ -176,12 +182,12 @@ export function registerFastMode(pi: ExtensionAPI, store: ScopeStore): void {
           );
         } else if (enabled && !inScope) {
           ctx.ui.notify(
-            `Fast mode is requested ON for ${ctx.model.provider}/${ctx.model.id}, but this model is currently excluded by provider model scope (/fast models). Scope: ${scopeDesc}. Requests will not inject priority.`,
+            `Fast mode is requested ON for ${ctx.model.provider}/${ctx.model.id}, but this model is currently excluded by provider model scope (/fast models). Scope: ${scopeDesc}. ${inactivePolicy(ctx)}`,
             "warning"
           );
         } else {
           ctx.ui.notify(
-            `Fast mode OFF for ${ctx.model.provider}/${ctx.model.id}. Scope: ${scopeDesc}.`,
+            `Fast mode OFF for ${ctx.model.provider}/${ctx.model.id}. Scope: ${scopeDesc}. ${inactivePolicy(ctx)}`,
             "info"
           );
         }
@@ -209,13 +215,13 @@ export function registerFastMode(pi: ExtensionAPI, store: ScopeStore): void {
           );
         } else {
           ctx.ui.notify(
-            `Fast mode requested ON for ${ctx.model.provider}/${ctx.model.id}, but this model is currently excluded by provider model scope (/fast models). Requests will not inject priority.`,
+            `Fast mode requested ON for ${ctx.model.provider}/${ctx.model.id}, but this model is currently excluded by provider model scope (/fast models). ${inactivePolicy(ctx)}`,
             "warning"
           );
         }
       } else {
         ctx.ui.notify(
-          `Fast mode OFF for ${ctx.model.provider}/${ctx.model.id}.`,
+          `Fast mode OFF for ${ctx.model.provider}/${ctx.model.id}. ${inactivePolicy(ctx)}`,
           "info"
         );
       }
@@ -223,11 +229,7 @@ export function registerFastMode(pi: ExtensionAPI, store: ScopeStore): void {
   });
 
   pi.on("before_provider_request", (event, ctx) => {
-    if (!isModelEffectiveFast(ctx.model)) return;
-
-    const payload = event.payload;
-    if (payload === null || typeof payload !== "object" || Array.isArray(payload)) return;
-
-    return { ...payload, service_tier: "priority" };
+    const effective = isModelEffectiveFast(ctx.model);
+    return applyTierPolicy(event.payload, ctx.model?.api, effective);
   });
 }

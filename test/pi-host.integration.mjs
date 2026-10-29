@@ -17,7 +17,7 @@ test("published extension works with the standard Pi runtime and native model di
     const { visibleWidth } = await import(pathToFileURL(resolve(host, "../pi-tui/dist/index.js")).href);
     const project = process.env.PI_FAST_MODE_TEST_PACKAGE_DIR ?? dirname(dirname(fileURLToPath(import.meta.url)));
     const statuses = new Map();
-    const model = { provider: "custom-oauth-relay", id: "arbitrary-alias", name: "中文模型 🚀" };
+    const model = { provider: "custom-oauth-relay", id: "arbitrary-alias", name: "中文模型 🚀", api: "openai-responses" };
     const ctx = {
       mode: "tui", model,
       modelRegistry: { getAll: () => [model, { provider: model.provider, id: "other", name: "另一个模型" }] },
@@ -69,7 +69,7 @@ test("published extension works with the standard Pi runtime and native model di
     await second.commands.get("fast").handler("on", ctx);
     assert.equal(statuses.get("pi-fast-mode"), undefined);
     for (const handler of second.handlers.get("before_provider_request") ?? []) {
-      assert.equal(await handler({ payload: {} }, ctx), undefined);
+      assert.deepEqual(await handler({ payload: { service_tier: "priority" } }, ctx), { service_tier: "default" });
     }
   } finally {
     if (oldAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;

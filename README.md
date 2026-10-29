@@ -28,7 +28,20 @@ pi install npm:@yueby/pi-fast-mode
 /fast models   # 打开当前 provider 的模型范围面板
 ```
 
-只有同时满足“已开启”和“在适用范围内”的模型，才会注入 `service_tier: "priority"`。关闭仅停止本扩展的注入，其他来源设置的 tier 保持原样；开启时会覆盖请求中已有的 `service_tier`。
+只有同时满足“已开启”和“在适用范围内”的模型，才会注入 `service_tier: "priority"`。开启时覆盖请求中已有的 tier。
+
+### 关闭行为
+
+| 请求 API | OFF、被范围排除或范围加载失败时 |
+|---|---|
+| `openai-responses`、`openai-completions` | 明确写入 `service_tier: "default"`，覆盖上游调用方已有的 `priority`，请求标准处理 |
+| Codex 与其他 API | 移除已有的 `priority` / `fast` / `ultrafast` 字段，不发送可能不兼容的 `default`；其余 tier 保持原样 |
+
+开关按当前会话的 provider/model 独立控制，不会关闭其他模型或其他 Pi 进程的开关。
+
+开关作用于之后经过 hook 的新请求。已经构造、发送或由 provider 内部复用请求体的重试，不会被后续 `/fast off` 追回；本扩展不会擅自中断正在进行的任务。若需要排除在途请求的干扰，请先停止当前运行，再关闭 Fast。
+
+`default` 是客户端请求值，不是收费保证。后续 hook、中转或服务端仍可能修改或忽略它；Codex 和其他 API 移除字段后也可能采用服务端默认 tier。中转若拒绝 `default`，应先核对兼容性，不会自动降级回可能使用 Priority 的默认值。
 
 ### 模型范围面板
 
@@ -108,11 +121,11 @@ npm test
 
 离线测试不依赖真实用户配置，文件读写仅使用测试创建的系统临时目录并在结束后清理。
 
-真实 Pi 加载和面板测试：
+真实 Pi 加载、面板和最终 HTTP body 的离线截获测试：
 
 ```bash
 PI_FAST_MODE_TEST_HOST="<Pi package directory>" \
-node --test test/pi-host.integration.mjs
+node --test test/pi-host.integration.mjs test/request-wire.integration.mjs
 ```
 
 可选的用户 Aurora footer 集成测试：
@@ -123,7 +136,7 @@ PI_FAST_MODE_TEST_FOOTER="$HOME/.pi/agent/extensions/aurora-footer.ts" \
 node --test test/aurora-footer.integration.mjs
 ```
 
-这些测试不发送模型请求。本 npm 包仅包含运行时源码、README、manifest 和许可证。
+HTTP body 测试使用内存中的模拟 fetch 和合成 SSE，不访问中转或上游。覆盖 ON/OFF、继承的 Priority、范围排除、后续变换，以及关闭时已有请求重试的边界。其他测试也不发送模型请求。本 npm 包仅包含运行时源码、README、manifest 和许可证。
 
 ## License
 

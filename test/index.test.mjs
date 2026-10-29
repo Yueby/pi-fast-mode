@@ -121,6 +121,7 @@ test("starts disabled and registers only /fast with completions", async () => {
   const app = setup();
   await app.emit("session_start");
   assert.deepEqual([...app.commands.keys()], ["fast"]);
+  assert.deepEqual([...app.handlers.keys()], ["session_start", "session_shutdown", "model_select", "before_provider_request"]);
   assert.equal(await app.request({ model: "gpt-5.4" }), undefined);
   assert.equal(app.statuses.get("pi-fast-mode"), undefined);
 
@@ -601,6 +602,32 @@ test("ModelScopeComponent interactive rendering and key navigation", () => {
   for (let i = 0; i < 7; i++) compMany.handleInput("j");
   const scrolledMany = compMany.render(60);
   assert.ok(scrolledMany.some((l) => l.includes("more above")));
+});
+
+test("OpenAI OFF and excluded scopes force default even when input is priority", async () => {
+  const app = setup({ provider: "cpa", id: "alias", api: "openai-responses" });
+  await app.emit("session_start");
+  const payload = Object.freeze({ service_tier: "priority", stream: true });
+  assert.deepEqual(await app.request(payload), { service_tier: "default", stream: true });
+  await app.command("on");
+  assert.equal((await app.request(payload)).service_tier, "priority");
+  await app.command("off");
+  assert.equal((await app.request(payload)).service_tier, "default");
+  assert.match(app.notifications.at(-1).message, /service_tier=default/);
+  await app.command("on");
+  app.setCustomDialogHandler(() => Promise.resolve(new Set()));
+  await app.command("models");
+  assert.equal((await app.request(payload)).service_tier, "default");
+  assert.equal(app.statuses.get("pi-fast-mode"), undefined);
+  assert.equal(payload.service_tier, "priority");
+});
+
+test("unreadable scopes still force default on OpenAI requests", async () => {
+  const app = setup({ provider: "cpa", id: "alias", api: "openai-responses" }, {
+    store: { load: () => { throw new Error("Invalid config"); }, save: () => { throw new Error("must not save"); } },
+  });
+  await app.emit("session_start");
+  assert.equal((await app.request({ service_tier: "priority" })).service_tier, "default");
 });
 
 test("footer status follows TUI and non-TUI mode transitions", async () => {
